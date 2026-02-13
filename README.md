@@ -36,16 +36,12 @@ Implementing all core LLM components from scratch:
 - GPT architecture
 - Training & fine-tuning
 
----
 
 ## 💻 Tech Stack
 
-- Python 3.x
-- PyTorch
-- Google Colab
-- NumPy, Matplotlib
+Python · PyTorch · Google Colab
 
----
+📦 [See full dependencies](dependencies.md)
 
 ## 🔗 Resources
 
