@@ -1,0 +1,463 @@
+% WEEK 03
+% Chapter 3: Coding Attention Mechanisms
+% Tuesday Feb 3 & Thursday Feb 5, 2026
+
+\subsection*{Week 3 \textemdash\ Coding Attention Mechanisms}
+\addcontentsline{toc}{subsection}{Week 3  Coding Attention Mechanisms}
+
+{\small\textit{Tuesday, February 3 \textbullet\ Thursday, February 5, 2026 \textbullet\ 1.5 hrs each session}}
+
+\vspace{0.8em}
+
+\begin{weekgoals}
+\begin{itemize}[leftmargin=1.2em, itemsep=2pt, topsep=2pt]
+  \item Understand why attention mechanisms were invented and what problem they solve.
+  \item Learn the basics of PyTorch tensors before diving into attention code.
+  \item Implement simple self-attention step by step  dot products, softmax, context vectors.
+  \item Implement self-attention with trainable weight matrices (queries, keys, values).
+  \item Understand causal masking and why it is essential for GPT-style models.
+  \item Build toward multi-head attention and understand what it adds.
+\end{itemize}
+\end{weekgoals}
+
+\vspace{0.8em}
+
+%-
+\subsubsection*{Tuesday, February 3  Session 1: PyTorch Basics + Simple Self-Attention}
+%-
+
+Honest note to start: this was the hardest week so far. Chapter 3 is where the
+complexity jumped significantly. The concepts are deep, the code has more moving parts,
+and there were moments of genuine confusion  especially around tensor shapes, the
+meaning of context vectors, and why all these steps were needed. But the chapter is
+also where the real magic of transformers lives. So the head stayed up.
+
+Before touching any attention code, time was spent on PyTorch basics. The book uses
+PyTorch throughout, and Chapter 3 assumes comfort with tensors, dot products, and matrix
+multiplication. This was the first week where that assumption started to feel real.
+
+\vspace{1em}
+
+\begin{keyconcept}
+\textbf{PyTorch Tensors  the Foundation of Everything.}
+PyTorch tensors are like NumPy arrays but with two critical extras: they can run on a
+GPU, and they support automatic differentiation (autograd), which is how neural networks
+learn. A 1D tensor is a vector. A 2D tensor is a matrix. A 3D tensor is a batch of
+matrices  and that is what shows up constantly in LLM code.
+
+The shape of a tensor is everything. When code breaks in PyTorch, it is almost always
+a shape mismatch. Getting comfortable reading shapes like \texttt{[batch, tokens, embedding\_dim]}
+was the first real skill this week.
+
+\textbf{Dot product  the core operation of attention.}
+A dot product multiplies two vectors element-wise and sums the results into a single
+number. It measures similarity: two vectors pointing in the same direction give a large
+dot product. Two perpendicular vectors give zero. In attention, dot products between
+token vectors tell the model how much one token should ``attend to'' another.
+\end{keyconcept}
+
+\vspace{1em}
+
+\begin{keyconcept}
+\textbf{Why do we need attention mechanisms at all?}
+Before transformers, the dominant architecture for language tasks was the RNN
+(recurrent neural network). RNNs process text one token at a time, passing a hidden
+state forward. The problem: by the time the model reaches the end of a long sentence,
+the hidden state has compressed everything that came before into a single fixed-size
+vector. Early context gets squeezed out. Long-range dependencies  where a word at
+the start of a paragraph determines the meaning of a word at the end  get lost.
+
+Attention was invented to fix this. Instead of compressing everything into one vector,
+attention lets every token look directly at every other token and decide how much
+to weight each one. No compression. No forgetting. Direct access.
+\end{keyconcept}
+
+\vspace{1em}
+
+The sentence used throughout this chapter: \textit{``Your journey starts with one step.''}
+Six tokens, each embedded as a 3-dimensional vector. Small enough to follow every number.
+
+\vspace{1em}
+
+\begin{lstlisting}[language=Python, caption={Input sentence as embedded token vectors}]
+import torch
+
+inputs = torch.tensor(
+  [[0.43, 0.15, 0.89],  # Your     (x1)
+   [0.55, 0.87, 0.66],  # journey  (x2)
+   [0.57, 0.85, 0.64],  # starts   (x3)
+   [0.22, 0.58, 0.33],  # with     (x4)
+   [0.77, 0.25, 0.10],  # one      (x5)
+   [0.05, 0.80, 0.55]]  # step     (x6)
+)
+\end{lstlisting}
+
+\textbf{Output:} No output yet  just defining the inputs. Each row is one token's
+embedding. Six rows, three dimensions each. Shape: \texttt{[6, 3]}.
+
+\vspace{1em}
+
+\begin{keyconcept}
+\textbf{Simple Self-Attention  Step by Step.}
+The goal: for each token, compute a \textit{context vector}  an enriched representation
+that blends information from all other tokens, weighted by relevance.
+
+For token \textbf{x2} (``journey''), the steps are:
+\begin{enumerate}[leftmargin=1.5em, itemsep=3pt, topsep=4pt]
+  \item Compute \textbf{attention scores}: dot product of x2 with every other token.
+        Higher score = more similar = more relevant.
+  \item \textbf{Normalize} with softmax to get attention weights that sum to 1.
+  \item Compute the \textbf{context vector}: weighted sum of all input vectors,
+        using the attention weights.
+\end{enumerate}
+\end{keyconcept}
+
+\vspace{1em}
+
+\begin{lstlisting}[language=Python, caption={Step 1: Compute attention scores for token x2}]
+query = inputs[1]   # "journey" is the query token
+
+attn_scores_2 = torch.empty(inputs.shape[0])
+for i, x_i in enumerate(inputs):
+    attn_scores_2[i] = torch.dot(x_i, query)
+
+print(attn_scores_2)
+\end{lstlisting}
+
+\textbf{Output:}
+\begin{lstlisting}[language={}, numbers=none, frame=none, backgroundcolor=\color{white}]
+tensor([0.9544, 1.4950, 1.4754, 0.8434, 0.7070, 1.0865])
+\end{lstlisting}
+
+Each number is how similar that token is to ``journey.'' The token ``starts'' (x3)
+scores high at 1.4754  makes sense, it is semantically close to ``journey.''
+The token ``one'' (x5) scores lowest  least related.
+
+\vspace{1em}
+
+\begin{lstlisting}[language=Python, caption={Step 2: Normalize with softmax to get attention weights}]
+attn_weights_2 = torch.softmax(attn_scores_2, dim=0)
+print("Attention weights:", attn_weights_2)
+print("Sum:", attn_weights_2.sum())
+\end{lstlisting}
+
+\textbf{Output:}
+\begin{lstlisting}[language={}, numbers=none, frame=none, backgroundcolor=\color{white}]
+Attention weights: tensor([0.1385, 0.2379, 0.2333, 0.1240, 0.1082, 0.1581])
+Sum: tensor(1.)
+\end{lstlisting}
+
+Softmax converts raw scores into weights that sum to 1. Now they can be interpreted
+as: ``pay 23.8\% attention to `journey' itself, 23.3\% to `starts', 13.9\% to `Your'\ldots''
+
+\vspace{1em}
+
+\begin{lstlisting}[language=Python, caption={Step 3: Compute the context vector for x2}]
+context_vec_2 = torch.zeros(query.shape)
+for i, x_i in enumerate(inputs):
+    context_vec_2 += attn_weights_2[i] * x_i
+
+print(context_vec_2)
+\end{lstlisting}
+
+\textbf{Output:}
+\begin{lstlisting}[language={}, numbers=none, frame=none, backgroundcolor=\color{white}]
+tensor([0.4419, 0.6515, 0.5683])
+\end{lstlisting}
+
+This 3-dimensional vector is the context vector for ``journey.'' It is no longer just
+the raw embedding of ``journey''  it now contains blended information from all six
+tokens, weighted by how relevant each one is. This is what self-attention produces.
+
+Then the same computation is generalized to all tokens at once using matrix multiplication
+ replacing the slow Python for-loop with a single efficient operation:
+
+\vspace{1em}
+
+\begin{lstlisting}[language=Python, caption={All attention weights and context vectors at once}]
+attn_scores  = inputs @ inputs.T
+attn_weights = torch.softmax(attn_scores, dim=-1)
+all_context_vecs = attn_weights @ inputs
+print(all_context_vecs)
+\end{lstlisting}
+
+\textbf{Output:}
+\begin{lstlisting}[language={}, numbers=none, frame=none, backgroundcolor=\color{white}]
+tensor([[0.4421, 0.5931, 0.5790],
+        [0.4419, 0.6515, 0.5683],
+        [0.4431, 0.6496, 0.5671],
+        [0.4304, 0.6298, 0.5510],
+        [0.4671, 0.5910, 0.5266],
+        [0.4177, 0.6503, 0.5645]])
+\end{lstlisting}
+
+Row 2 matches the manually computed \texttt{context\_vec\_2} exactly. The matrix
+multiplication does in one line what the loop did step by step.
+
+\vspace{1em}
+
+%-
+\subsubsection*{Thursday, February 5  Session 2: Trainable Weights, Causal Masking, Multi-Head}
+%-
+
+Second session was the steeper climb. This is where the real complexity of Chapter 3
+comes in. The simple attention from Session 1 has no learnable parameters  it uses
+the raw input vectors directly. Real LLMs need the model to \textit{learn} how to
+attend. That requires weight matrices.
+
+\vspace{1em}
+
+\begin{keyconcept}
+\textbf{Self-Attention with Trainable Weights  Queries, Keys, and Values.}
+The core idea: instead of computing dot products directly between input vectors, first
+transform each input through three separate learned weight matrices:
+
+\begin{center}
+  $Q = X \cdot W_q \qquad K = X \cdot W_k \qquad V = X \cdot W_v$
+\end{center}
+
+\textbf{Query}  what this token is looking for.\\
+\textbf{Key}  what this token is offering to others.\\
+\textbf{Value}  the actual content this token contributes to the output.
+
+Attention scores are computed between queries and keys. Context vectors are computed
+as weighted sums of values. The weight matrices $W_q$, $W_k$, $W_v$ are learned during
+training  the model figures out the best way to transform inputs so that relevant
+tokens end up with high attention scores.
+
+\textbf{Why scale by $\sqrt{d_k}$?}
+When $d_k$ (the key dimension) is large, dot products grow large in magnitude and
+push softmax into saturation  near-zero gradients, learning stalls. Dividing by
+$\sqrt{d_k}$ keeps values in a stable range. This is the ``scaled'' in scaled dot-product
+attention.
+\end{keyconcept}
+
+\vspace{1em}
+
+\begin{lstlisting}[language=Python, caption={Implementing self-attention with trainable weight matrices}]
+import torch.nn as nn
+
+class SelfAttention_v2(nn.Module):
+    def __init__(self, d_in, d_out, qkv_bias=False):
+        super().__init__()
+        self.W_query = nn.Linear(d_in, d_out, bias=qkv_bias)
+        self.W_key   = nn.Linear(d_in, d_out, bias=qkv_bias)
+        self.W_value = nn.Linear(d_in, d_out, bias=qkv_bias)
+
+    def forward(self, x):
+        keys    = self.W_key(x)
+        queries = self.W_query(x)
+        values  = self.W_value(x)
+
+        attn_scores  = queries @ keys.T
+        attn_weights = torch.softmax(
+            attn_scores / keys.shape[-1]**0.5, dim=-1
+        )
+        return attn_weights @ values
+
+torch.manual_seed(789)
+sa = SelfAttention_v2(d_in=3, d_out=2)
+print(sa(inputs))
+\end{lstlisting}
+
+\textbf{Output:}
+\begin{lstlisting}[language={}, numbers=none, frame=none, backgroundcolor=\color{white}]
+tensor([[-0.0739,  0.0713],
+        [-0.0748,  0.0703],
+        [-0.0749,  0.0702],
+        [-0.0760,  0.0685],
+        [-0.0763,  0.0679],
+        [-0.0754,  0.0693]], grad_fn=<MmBackward0>)
+\end{lstlisting}
+
+Six context vectors, each 2-dimensional (d\_out=2). The weight matrices project from
+3D input space into 2D output space. These weights will be updated during training.
+
+\vspace{1em}
+
+\begin{keyconcept}
+\textbf{Causal Attention  Hiding the Future.}
+GPT generates text left-to-right. When predicting the next token, it must not be
+allowed to look at tokens that come after the current position  that would be
+cheating. Causal attention (also called masked attention) enforces this constraint.
+
+The fix: mask out all attention scores above the diagonal. Replace them with
+$-\infty$ before applying softmax. Since $e^{-\infty} = 0$, those positions get
+zero weight  effectively invisible to the model. The result: each token can only
+attend to itself and everything before it.
+\end{keyconcept}
+
+\vspace{1em}
+
+\begin{lstlisting}[language=Python, caption={Applying the causal mask with negative infinity}]
+context_length = attn_scores.shape[0]
+
+# Upper triangle mask (ones above diagonal)
+mask = torch.triu(torch.ones(context_length, context_length), diagonal=1)
+
+# Fill upper triangle with -inf before softmax
+masked = attn_scores.masked_fill(mask.bool(), -torch.inf)
+print(masked)
+\end{lstlisting}
+
+\textbf{Output:}
+\begin{lstlisting}[language={}, numbers=none, frame=none, backgroundcolor=\color{white}]
+tensor([[0.2899,   -inf,   -inf,   -inf,   -inf,   -inf],
+        [0.4656, 0.1723,   -inf,   -inf,   -inf,   -inf],
+        [0.4594, 0.1703, 0.1731,   -inf,   -inf,   -inf],
+        [0.2642, 0.1024, 0.1036, 0.0186,   -inf,   -inf],
+        [0.2183, 0.0874, 0.0882, 0.0177, 0.0786,   -inf],
+        [0.3408, 0.1270, 0.1290, 0.0198, 0.1290, 0.0078]])
+\end{lstlisting}
+
+\begin{lstlisting}[language=Python, caption={Apply softmax  the -inf values become zero automatically}]
+attn_weights = torch.softmax(masked / keys.shape[-1]**0.5, dim=-1)
+print(attn_weights)
+\end{lstlisting}
+
+\textbf{Output:}
+\begin{lstlisting}[language={}, numbers=none, frame=none, backgroundcolor=\color{white}]
+tensor([[1.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000],
+        [0.5517, 0.4483, 0.0000, 0.0000, 0.0000, 0.0000],
+        [0.3800, 0.3097, 0.3103, 0.0000, 0.0000, 0.0000],
+        [0.2758, 0.2460, 0.2462, 0.2319, 0.0000, 0.0000],
+        [0.2175, 0.1983, 0.1984, 0.1888, 0.1971, 0.0000],
+        [0.1935, 0.1663, 0.1666, 0.1542, 0.1666, 0.1529]])
+\end{lstlisting}
+
+The triangle shape is clear: token 1 can only see itself. Token 6 can see all six.
+Everything above the diagonal is zero. No future leakage.
+
+\vspace{1em}
+
+All of this  the weight matrices, the masking, dropout for regularization  gets
+packaged into a clean \texttt{CausalAttention} class. That class is then stacked into
+\texttt{MultiHeadAttention}.
+
+\vspace{1em}
+
+\begin{keyconcept}
+\textbf{Multi-Head Attention  Why Run Attention Multiple Times?}
+A single attention head looks at the input through one ``lens''  one set of learned
+$W_q$, $W_k$, $W_v$ matrices. Multi-head attention runs several attention operations
+in parallel, each with its own weight matrices. Each head can learn to focus on different
+aspects: one head might track syntactic relationships, another semantic similarity,
+another long-range coreference.
+
+The outputs of all heads are concatenated and projected back to the original dimension.
+The result: a richer, more expressive context vector that captures multiple perspectives
+on the input simultaneously.
+
+In GPT-2 (small), there are 12 heads operating in parallel. In GPT-3, 96 heads.
+The efficient implementation does not run them sequentially  it reshapes the tensors
+so all heads compute in parallel through a single batched matrix multiplication.
+\end{keyconcept}
+
+\vspace{1em}
+
+\begin{lstlisting}[language=Python, caption={Multi-head attention  efficient implementation}]
+class MultiHeadAttention(nn.Module):
+    def __init__(self, d_in, d_out, context_length,
+                 dropout, num_heads, qkv_bias=False):
+        super().__init__()
+        assert d_out % num_heads == 0
+        self.d_out     = d_out
+        self.num_heads = num_heads
+        self.head_dim  = d_out // num_heads   # split d_out across heads
+        self.W_query   = nn.Linear(d_in, d_out, bias=qkv_bias)
+        self.W_key     = nn.Linear(d_in, d_out, bias=qkv_bias)
+        self.W_value   = nn.Linear(d_in, d_out, bias=qkv_bias)
+        self.out_proj  = nn.Linear(d_out, d_out)
+        self.dropout   = nn.Dropout(dropout)
+        self.register_buffer("mask",
+            torch.triu(torch.ones(context_length, context_length), diagonal=1))
+
+    def forward(self, x):
+        b, num_tokens, d_in = x.shape
+        keys    = self.W_key(x).view(b, num_tokens, self.num_heads, self.head_dim).transpose(1,2)
+        queries = self.W_query(x).view(b, num_tokens, self.num_heads, self.head_dim).transpose(1,2)
+        values  = self.W_value(x).view(b, num_tokens, self.num_heads, self.head_dim).transpose(1,2)
+
+        attn_scores = queries @ keys.transpose(2, 3)
+        attn_scores.masked_fill_(self.mask.bool()[:num_tokens, :num_tokens], -torch.inf)
+        attn_weights = self.dropout(torch.softmax(attn_scores / keys.shape[-1]**0.5, dim=-1))
+
+        context_vec = (attn_weights @ values).transpose(1,2).contiguous()
+        context_vec = context_vec.view(b, num_tokens, self.d_out)
+        return self.out_proj(context_vec)
+
+torch.manual_seed(123)
+batch = torch.stack((inputs, inputs), dim=0)   # batch of 2 inputs
+mha = MultiHeadAttention(d_in=3, d_out=2, context_length=6, dropout=0.0, num_heads=2)
+context_vecs = mha(batch)
+print(context_vecs)
+print("Shape:", context_vecs.shape)
+\end{lstlisting}
+
+\textbf{Output:}
+\begin{lstlisting}[language={}, numbers=none, frame=none, backgroundcolor=\color{white}]
+tensor([[[0.3190, 0.4858],
+         [0.2943, 0.3897],
+         [0.2856, 0.3593],
+         [0.2693, 0.3873],
+         [0.2639, 0.3928],
+         [0.2575, 0.4028]],
+        [[0.3190, 0.4858],
+         ...
+Shape: torch.Size([2, 6, 2])
+\end{lstlisting}
+
+Batch of 2 sentences, 6 tokens each, 2-dimensional context vector per token.
+The two sentences produce identical output because they are duplicates.
+This is the attention module that will plug directly into the GPT model in Chapter 4.
+
+\vspace{1em}
+
+\begin{challenge}
+\begin{itemize}[leftmargin=1.2em, itemsep=3pt, topsep=2pt]
+  \item \textbf{Tensor shapes were the hardest part.} Going from \texttt{[b, tokens, d\_out]}
+        to \texttt{[b, heads, tokens, head\_dim]} through \texttt{.view()} and
+        \texttt{.transpose()} is not immediately obvious. Had to draw these transformations
+        out on paper to follow what was happening at each step.
+  \item \textbf{Why values and not just keys?} The Q/K/V split felt arbitrary at first.
+        The intuition that helped: Q and K determine \textit{how much} to attend,
+        V determines \textit{what} gets passed forward. They serve different roles.
+  \item \textbf{register\_buffer vs.\ nn.Parameter:} The mask uses \texttt{register\_buffer}
+        because it is not a learnable parameter  it should not be updated by the
+        optimizer. But it still needs to move to GPU with the model. This distinction
+        took a moment to understand.
+  \item \textbf{Motivation dip:} The jump in complexity this week was real. There were
+        moments where the number of steps felt overwhelming. What helped: going back
+        to the simple version first, getting that working, then moving to the complex
+        version. Building up, not jumping in.
+\end{itemize}
+\end{challenge}
+
+\vspace{0.8em}
+
+\begin{reflection}
+Week 3 was the toughest so far  and also the most rewarding once things clicked.
+
+The moment that helped most: understanding that the entire chapter is really just
+three steps repeated at different levels of complexity. (1) Compute similarity scores.
+(2) Normalize with softmax. (3) Take a weighted sum. That is self-attention.
+Everything else  the weight matrices, the masking, the multi-head structure 
+is built on top of that same core loop.
+
+The demotivation was real. When the tensor shapes started flying and the
+\texttt{.view().transpose().contiguous()} chains appeared, it felt like the gap
+between ``I understand the idea'' and ``I understand the code'' was suddenly very
+large. What got me through: running each piece in isolation, printing shapes,
+checking that intermediate outputs matched what was expected before moving on.
+
+PyTorch clicked more this week than in any previous session. The difference between
+\texttt{nn.Parameter} (learned) and \texttt{register\_buffer} (fixed but device-aware)
+is a small thing, but understanding it made the code feel less like magic.
+
+One sentence that kept things in perspective: every complex LLM in the world 
+GPT-4, Gemini, Claude  is built on this same attention mechanism. Understanding
+it at this level, from the dot products up, is understanding the foundation everything
+else rests on. That is worth the difficulty.
+\end{reflection}
+
+\vspace{1em}

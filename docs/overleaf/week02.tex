@@ -1,0 +1,381 @@
+\subsection*{Week 2 \textemdash\ Working with Text Data}
+\addcontentsline{toc}{subsection}{Week 2  Working with Text Data}
+
+{\small\textit{Tuesday, January 27 \textbullet\ Thursday, January 29, 2026 \textbullet\ 1.5 hrs each session}}
+
+\vspace{0.8em}
+
+\begin{weekgoals}
+\begin{itemize}[leftmargin=1.2em, itemsep=2pt, topsep=2pt]
+  \item Understand why raw text cannot be fed directly into a neural network.
+  \item Learn how text gets tokenized  split into words and special characters.
+  \item Build a simple tokenizer from scratch using Python's \texttt{re} module.
+  \item Understand byte pair encoding (BPE) and use the \texttt{tiktoken} library.
+  \item Implement the sliding window approach to create input--target training pairs.
+  \item Understand token embeddings and why positional embeddings are needed.
+\end{itemize}
+\end{weekgoals}
+
+\vspace{0.8em}
+
+\subsubsection*{Tuesday, January 27  Session 1: From Text to Tokens}
+
+This week is where things got real. Week 1 was all concepts. Week 2 is where the first
+lines of code got written  and honestly, it felt really good. The ideas are simple,
+the Python is approachable, and watching each step work made the whole pipeline start
+to feel tangible.
+
+\vspace{1em}
+
+\begin{keyconcept}
+\textbf{Why can't neural networks process raw text?}
+Neural networks work with numbers  continuous-valued vectors that can be multiplied,
+added, and differentiated. Text is categorical. The word ``cat'' has no inherent
+numerical value. Before an LLM can process any text, every word and punctuation mark
+has to be converted into numbers. The pipeline is:
+
+\begin{center}
+  raw text $\;\longrightarrow\;$ tokens $\;\longrightarrow\;$ token IDs $\;\longrightarrow\;$ embedding vectors
+\end{center}
+
+\textbf{What is an embedding?}
+An embedding maps a discrete token into a point in a continuous vector space. Instead
+of representing ``king'' as a single integer, an embedding represents it as a vector of
+hundreds of numbers that encode its meaning and relationships to other words. Similar
+words end up close together in this space. This is what allows a neural network to
+reason about language mathematically.
+\end{keyconcept}
+
+\vspace{1em}
+
+The first hands-on task: download a real text file and load it into Python. The book
+uses a short story by Edith Wharton, \textit{The Verdict}, as the training text for
+this chapter.
+
+\vspace{1em}
+
+\begin{lstlisting}[language=Python, caption={Downloading and loading the training text}]
+import urllib.request
+
+url = ("https://raw.githubusercontent.com/rasbt/"
+       "LLMs-from-scratch/main/ch02/01_main-chapter-code/"
+       "the-verdict.txt")
+urllib.request.urlretrieve(url, "the-verdict.txt")
+
+with open("the-verdict.txt", "r", encoding="utf-8") as f:
+raw_text = f.read()
+
+print("Total characters:", len(raw_text))
+print(raw_text[:99])
+\end{lstlisting}
+
+\textbf{Output:}
+\begin{lstlisting}[language={}, numbers=none, frame=none, backgroundcolor=\color{white}]
+Total characters: 20479
+I HAD always thought Jack Gisburn rather a cheap genius--though a good fellow enough--so it was no
+\end{lstlisting}
+
+Twenty thousand characters of real text. Small by real-world standards  GPT-3 trained
+on hundreds of billions of tokens  but perfect for understanding the pipeline step by step.
+
+\vspace{1em}
+
+Next: split that text into tokens using Python's \texttt{re} module.
+
+\vspace{1em}
+
+\begin{lstlisting}[language=Python, caption={Tokenizing text with regular expressions}]
+import re
+
+text = "Hello, world. Is this-- a test?"
+
+result = re.split(r'([,.:;?_!"()\']|--|\s)', text)
+result = [item.strip() for item in result if item.strip()]
+print(result)
+\end{lstlisting}
+
+\textbf{Output:}
+\begin{lstlisting}[language={}, numbers=none, frame=none, backgroundcolor=\color{white}]
+['Hello', ',', 'world', '.', 'Is', 'this', '--', 'a', 'test', '?']
+\end{lstlisting}
+
+The regular expression splits on whitespace, commas, periods, dashes, and question marks 
+every punctuation mark becomes its own separate token. Punctuation carries meaning: a period
+signals end of sentence, a question mark changes the tone. If they stay attached to words,
+``test.'' and ``test'' look like different things to the model even though they are not.
+Separating them keeps the vocabulary clean.
+
+Running this on the full short story produces \textbf{4,690 tokens}.
+
+\vspace{1em}
+
+%-
+\subsubsection*{Thursday, January 29  Session 2: Vocabulary, BPE, and Embeddings}
+%-
+
+Second session picks up from tokens and goes all the way to the embedding vectors the
+model actually sees. Every step connected naturally to the one before it.
+
+\vspace{1em}
+
+\begin{keyconcept}
+\textbf{Building a Vocabulary.}
+Once the text is tokenized, every unique token gets mapped to a unique integer. Sort all
+unique tokens alphabetically, assign each one an index, store it in a Python dictionary.
+That dictionary is the vocabulary. Encoding means looking up each token and returning its
+integer. Decoding means doing the reverse.
+\end{keyconcept}
+
+\vspace{1em}
+
+\begin{lstlisting}[language=Python, caption={Building the vocabulary}]
+all_words = sorted(set(preprocessed))
+vocab_size = len(all_words)
+vocab = {token: integer for integer, token in enumerate(all_words)}
+
+print(vocab_size)
+\end{lstlisting}
+
+\textbf{Output:}
+\begin{lstlisting}[language={}, numbers=none, frame=none, backgroundcolor=\color{white}]
+1130
+\end{lstlisting}
+
+1,130 unique tokens from the short story. Now implement a tokenizer class with two
+methods  \texttt{encode} (text to IDs) and \texttt{decode} (IDs back to text).
+
+\vspace{1em}
+
+\begin{lstlisting}[language=Python, caption={Simple tokenizer with encode and decode}]
+class SimpleTokenizerV1:
+    def __init__(self, vocab):
+        self.str_to_int = vocab
+        self.int_to_str = {i: s for s, i in vocab.items()}
+
+    def encode(self, text):
+        preprocessed = re.split(r'([,.:;?_!"()\']|--|\s)', text)
+        preprocessed = [item.strip() for item in preprocessed if item.strip()]
+        return [self.str_to_int[s] for s in preprocessed]
+
+    def decode(self, ids):
+        text = " ".join([self.int_to_str[i] for i in ids])
+        return re.sub(r'\s+([,.?!"()\'])', r'\1', text)
+
+tokenizer = SimpleTokenizerV1(vocab)
+ids = tokenizer.encode('"It\'s the last he painted, you know,"')
+print(ids)
+print(tokenizer.decode(ids))
+\end{lstlisting}
+
+\textbf{Output:}
+\begin{lstlisting}[language={}, numbers=none, frame=none, backgroundcolor=\color{white}]
+[1, 56, 2, 850, 988, 602, 533, 746, 5, 1126, 596, 5, 1]
+"It's the last he painted, you know,"
+\end{lstlisting}
+
+Encode converts the sentence to integers. Decode brings it back. Clean round-trip.
+But there is a real limitation: try encoding a word not in the training text and it
+crashes with a \texttt{KeyError}. The vocabulary only knows what it has seen.
+
+The fix is two special tokens added to the vocabulary.
+
+\vspace{1em}
+
+\begin{lstlisting}[language=Python, caption={Adding special tokens to the vocabulary}]
+all_tokens = sorted(list(set(preprocessed)))
+all_tokens.extend(["<|endoftext|>", "<|unk|>"])
+vocab = {token: integer for integer, token in enumerate(all_tokens)}
+
+print(len(vocab))
+\end{lstlisting}
+
+\textbf{Output:}
+\begin{lstlisting}[language={}, numbers=none, frame=none, backgroundcolor=\color{white}]
+1132
+\end{lstlisting}
+
+\begin{keyconcept}
+\textbf{Special Tokens.}
+\textbf{\texttt{<|unk|>}} replaces any word not found in the vocabulary. Instead of
+crashing, the tokenizer substitutes the unknown word silently. The model learns that
+this token means ``something I haven't seen before.''
+
+\textbf{\texttt{<|endoftext|>}} is inserted between unrelated texts that are concatenated
+for training. When training on multiple books or articles, this token signals: the previous
+document ended, a new one begins. Without it, the model might try to connect things that
+have nothing to do with each other.
+
+GPT models actually do not use \texttt{<|unk|>} at all. They use a smarter tokenizer 
+byte pair encoding  that never encounters an unknown word because it breaks any word
+into subword pieces or individual characters.
+\end{keyconcept}
+
+\vspace{1em}
+
+\begin{lstlisting}[language=Python, caption={Testing the tokenizer with unknown words and special tokens}]
+text1 = "Hello, do you like tea?"
+text2 = "In the sunlit terraces of the palace."
+text  = " <|endoftext|> ".join((text1, text2))
+
+tokenizer2 = SimpleTokenizerV2(vocab)
+print(tokenizer2.decode(tokenizer2.encode(text)))
+\end{lstlisting}
+
+\textbf{Output:}
+\begin{lstlisting}[language={}, numbers=none, frame=none, backgroundcolor=\color{white}]
+<|unk|>, do you like tea? <|endoftext|> In the sunlit terraces of the <|unk|>.
+\end{lstlisting}
+
+``Hello'' and ``palace'' were not in \textit{The Verdict}, so both became
+\texttt{<|unk|>}. The \texttt{<|endoftext|>} separator passed through correctly.
+
+\vspace{1em}
+
+\begin{keyconcept}
+\textbf{Byte Pair Encoding (BPE).}
+BPE is the tokenization scheme used by GPT-2, GPT-3, and ChatGPT. It builds a vocabulary
+of subword pieces by starting with individual characters and iteratively merging the most
+frequent pairs. ``de'' might become one token because it appears in thousands of words:
+\textit{define}, \textit{depend}, \textit{made}, \textit{hidden}.
+
+The result: an unknown word like ``someunknownPlace'' does not crash the tokenizer 
+it gets broken into familiar subword chunks. BPE can handle any text, including words
+that never appeared in training. The GPT-2 BPE vocabulary has \textbf{50,257 tokens}.
+\end{keyconcept}
+
+\vspace{1em}
+
+\begin{lstlisting}[language=Python, caption={Using the tiktoken BPE tokenizer}]
+import tiktoken
+
+tokenizer = tiktoken.get_encoding("gpt2")
+text = "Hello, do you like tea? <|endoftext|> In the sunlit terraces of someunknownPlace."
+integers = tokenizer.encode(text, allowed_special={"<|endoftext|>"})
+print(integers)
+print(tokenizer.decode(integers))
+\end{lstlisting}
+
+\textbf{Output:}
+\begin{lstlisting}[language={}, numbers=none, frame=none, backgroundcolor=\color{white}]
+[15496, 11, 466, 345, 588, 8887, 30, 220, 50256, 554, 262, 4252, 18250, 8812, 2114, 286, 617, 34680, 27271, 13]
+Hello, do you like tea? <|endoftext|> In the sunlit terraces of someunknownPlace.
+\end{lstlisting}
+
+``someunknownPlace'' encodes and decodes perfectly. BPE split it into subword pieces
+internally and reassembled it cleanly. No \texttt{<|unk|>} needed.
+
+\vspace{1em}
+
+\begin{keyconcept}
+\textbf{Sliding Window  Creating Training Pairs.}
+The LLM learns by predicting the next token. To train it, every sequence needs to be
+paired with its target: the same sequence shifted one position forward. A context size
+of 4 means: input is tokens $[t_1, t_2, t_3, t_4]$, target is $[t_2, t_3, t_4, t_5]$.
+The window slides across the entire text generating thousands of these pairs.
+\end{keyconcept}
+
+\vspace{1em}
+
+\begin{lstlisting}[language=Python, caption={Sliding window to generate input--target pairs}]
+context_size = 4
+enc_sample = tokenizer.encode(raw_text)[50:]
+
+for i in range(1, context_size + 1):
+    context = enc_sample[:i]
+    desired = enc_sample[i]
+    print(tokenizer.decode(context), "->", tokenizer.decode([desired]))
+\end{lstlisting}
+
+\textbf{Output:}
+\begin{lstlisting}[language={}, numbers=none, frame=none, backgroundcolor=\color{white}]
+ and ->  established
+ and established ->  himself
+ and established himself ->  in
+ and established himself in ->  a
+\end{lstlisting}
+
+This is the entire learning signal. Predict the next word given everything before it.
+Repeated across billions of examples that is how an LLM learns.
+
+\vspace{1em}
+
+\begin{keyconcept}
+\textbf{Token Embeddings.}
+Token IDs are integers. Neural networks need vectors. An embedding layer is a lookup
+table: each token ID maps to a row in a weight matrix, and that row is the token's
+embedding vector. These weights start random and get updated during training.
+
+\textbf{Positional Embeddings.}
+The embedding layer gives every occurrence of the same token the exact same vector 
+no matter where in the sentence it appears. But position matters. ``Dog bites man'' and
+``Man bites dog'' use the same words but mean opposite things. A second embedding layer
+encodes the position of each token (0, 1, 2, \ldots) and adds it to the token embedding.
+Final input to the model = token embedding + positional embedding.
+\end{keyconcept}
+
+\vspace{1em}
+
+\begin{lstlisting}[language=Python, caption={Token and positional embeddings}]
+import torch
+
+vocab_size = 50257
+output_dim = 256
+max_length = 4
+
+token_embedding_layer = torch.nn.Embedding(vocab_size, output_dim)
+pos_embedding_layer   = torch.nn.Embedding(max_length, output_dim)
+
+token_embeddings = token_embedding_layer(inputs)
+pos_embeddings   = pos_embedding_layer(torch.arange(max_length))
+
+input_embeddings = token_embeddings + pos_embeddings
+print(input_embeddings.shape)
+\end{lstlisting}
+
+\textbf{Output:}
+\begin{lstlisting}[language={}, numbers=none, frame=none, backgroundcolor=\color{white}]
+torch.Size([8, 4, 256])
+\end{lstlisting}
+
+8 training examples, each with 4 tokens, each token as a 256-dimensional vector.
+This tensor is what the model actually receives. The entire data pipeline  raw text
+to numbers  is complete. Everything from here goes into the transformer.
+
+\vspace{1em}
+
+\begin{challenge}
+\begin{itemize}[leftmargin=1.2em, itemsep=3pt, topsep=2pt]
+  \item \textbf{BPE merge decisions:} How exactly does BPE decide which pairs to merge
+        and when to stop? The frequency cutoff logic is still fuzzy. Will explore more.
+  \item \textbf{Stride vs.\ overlap:} A stride smaller than the context size creates
+        overlapping examples. More data, but risk of overfitting. The right stride is
+        a hyperparameter to tune per task.
+  \item \textbf{Embedding dimensions:} GPT-2 uses 768, GPT-3 uses 12,288. How does
+        the number of dimensions affect what the model can represent? Will become clearer
+        when building the full model in Chapter 4.
+\end{itemize}
+\end{challenge}
+
+\vspace{0.8em}
+
+\begin{reflection}
+Week 2 was genuinely fun. The Python here is not complicated  regular expressions,
+dictionaries, a class with two methods  and yet by the end of the session raw text
+has been turned into the numerical tensors an LLM actually trains on. That felt
+significant.
+
+The concept that surprised me most: positional embeddings. It had not occurred to me
+that the self-attention mechanism is completely position-blind without them. The same
+word in position 1 and position 10 looks identical to the model. Adding a separate
+learned embedding for position is such a clean fix  just add two vectors together
+and the model has both meaning and order in one input.
+
+BPE also clicked in a way I did not expect. The idea that you never need an unknown
+token if you can always fall back to individual characters is simple but powerful.
+Every word in every language is made of characters. BPE can handle anything.
+
+Looking forward to Chapter 3. That is where attention mechanisms live  and that is
+where the real intelligence of the transformer is supposed to come from.
+\end{reflection}
+
+\vspace{1em}

@@ -1,0 +1,282 @@
+%===============================================================
+% WEEK 05
+% Chapter 4: Implementing a GPT Model from Scratch
+% Tuesday Feb 17 & Thursday Feb 19, 2026
+%===============================================================
+
+\subsection*{Week 5 \textemdash\ Implementing a GPT Model from Scratch}
+\addcontentsline{toc}{subsection}{Week 5 --- Implementing a GPT Model from Scratch}
+
+{\small\textit{Tuesday, February 17 \textbullet\ Thursday, February 19, 2026 \textbullet\ 1.5 hrs each session}}
+
+\vspace{0.8em}
+
+\begin{weekgoals}
+\begin{itemize}[leftmargin=1.2em, itemsep=2pt, topsep=2pt]
+  \item Understand the full GPT architecture from a top-down view.
+  \item Learn how all previous components fit together into one model.
+  \item Understand layer normalization, feed-forward networks, and shortcut connections.
+  \item Understand what a transformer block is and how it is assembled.
+  \item Study the GPT-2 (124M) configuration and understand what each hyperparameter controls.
+  \item Plan to write code once the Overleaf documentation is pushed and professor meeting is done.
+\end{itemize}
+\end{weekgoals}
+
+\vspace{0.8em}
+
+%----------------------------------------------------------------
+\subsubsection*{Where Things Stand}
+%----------------------------------------------------------------
+
+Week 4 ended with a solid understanding of attention mechanisms. Week 5 is Chapter 4,
+which is where everything so far gets assembled into a full GPT-style model. No code
+was written this week. The focus was on reading the chapter carefully, understanding
+the architecture from top to bottom, and building a clear mental model before the
+professor meeting next week.
+
+This chapter felt different from the previous ones. Less confusing, more satisfying.
+Having a solid foundation in attention meant that the new pieces --- layer normalization,
+GELU activations, shortcut connections, the transformer block --- could be understood
+in terms of what problem each one solves rather than just what the code looks like.
+
+\vspace{1em}
+
+%----------------------------------------------------------------
+\subsubsection*{Tuesday, February 17 --- Session 1: The GPT Architecture Top-Down}
+%----------------------------------------------------------------
+
+\begin{keyconcept}
+\textbf{The Big Picture: What a GPT Model Actually Is.}
+A GPT model is a stack of transformer blocks sitting between two embedding layers at
+the input and a linear output layer at the end. That is the entire architecture. Every
+capability --- translation, summarization, question answering, code generation --- comes
+from this same structure trained on enough text.
+
+The data flow through the model is:
+
+\begin{enumerate}[leftmargin=1.5em, itemsep=3pt, topsep=4pt]
+  \item \textbf{Token embedding:} Input token IDs are converted to vectors via a
+        learned embedding matrix. Shape: \texttt{[batch, tokens, d\_model]}.
+  \item \textbf{Positional embedding:} A learned position vector is added to each
+        token embedding. Same shape. Now each token knows where it is in the sequence.
+  \item \textbf{Transformer blocks:} The combined embeddings pass through $N$ stacked
+        transformer blocks. Each block refines the representations using attention and
+        a feed-forward network.
+  \item \textbf{Final layer norm:} Applied once after the last transformer block.
+  \item \textbf{Output projection:} A linear layer maps from \texttt{d\_model} to
+        \texttt{vocab\_size}. Each position produces a score for every token in the
+        vocabulary. The highest score is the predicted next token.
+\end{enumerate}
+\end{keyconcept}
+
+\vspace{1em}
+
+\begin{keyconcept}
+\textbf{GPT-2 (124M) Configuration.}
+The smallest GPT-2 model is defined by a small set of hyperparameters. Understanding
+what each one controls is essential before looking at any code.
+
+\begin{center}
+\small
+\begin{tabular}{@{}ll@{}}
+  \toprule
+  \textbf{Hyperparameter} & \textbf{Value and Meaning} \\
+  \midrule
+  \texttt{vocab\_size}     & 50,257 \quad BPE vocabulary from tiktoken \\
+  \texttt{context\_length} & 1,024 \quad maximum tokens the model can see at once \\
+  \texttt{emb\_dim}        & 768 \quad embedding dimension for every token \\
+  \texttt{n\_heads}        & 12 \quad attention heads per transformer block \\
+  \texttt{n\_layers}       & 12 \quad stacked transformer blocks \\
+  \texttt{drop\_rate}      & 0.1 \quad dropout probability during training \\
+  \texttt{qkv\_bias}       & False \quad no bias terms in Q, K, V projections \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+\vspace{0.4em}
+Total parameters: \textbf{124 million}. Each parameter is a floating-point number
+updated by gradient descent during training. The embedding matrix alone accounts for
+$50{,}257 \times 768 \approx 38.6$ million parameters.
+\end{keyconcept}
+
+\vspace{1em}
+
+\begin{keyconcept}
+\textbf{Layer Normalization: Stabilizing Training.}
+Deep networks are hard to train because the distribution of values flowing through
+each layer shifts constantly as weights update. This is called internal covariate shift.
+Layer normalization fixes this by normalizing the activations at each layer to have
+mean 0 and variance 1, then applying learned scale and shift parameters.
+
+Unlike batch normalization (which normalizes across the batch dimension), layer norm
+normalizes across the feature dimension. This makes it independent of batch size and
+well-suited for language tasks where sequences vary in length.
+
+GPT-2 applies layer norm \textit{before} the attention and feed-forward sublayers
+(pre-norm), rather than after. Research found pre-norm leads to more stable training
+in deep transformer models.
+\end{keyconcept}
+
+\vspace{1em}
+
+\begin{keyconcept}
+\textbf{The Feed-Forward Network and GELU Activation.}
+Each transformer block contains a small two-layer feed-forward network applied
+independently to each token position. The network expands the dimension by a factor
+of 4, applies an activation function, then projects back down:
+
+\[
+  \text{FFN}(x) = W_2 \cdot \text{GELU}(W_1 x + b_1) + b_2
+\]
+
+For GPT-2 with \texttt{emb\_dim=768}: the hidden layer is $768 \times 4 = 3072$
+dimensions wide. This expansion gives the model capacity to learn complex non-linear
+transformations of each token's representation.
+
+\textbf{GELU} (Gaussian Error Linear Unit) is the activation function used instead of
+ReLU. GELU is smoother than ReLU and allows small negative values through rather than
+cutting everything below zero to exactly zero. In practice this leads to better
+performance in transformer models.
+\end{keyconcept}
+
+\vspace{1em}
+
+%----------------------------------------------------------------
+\subsubsection*{Thursday, February 19 --- Session 2: Transformer Blocks and Shortcut Connections}
+%----------------------------------------------------------------
+
+\begin{keyconcept}
+\textbf{Shortcut Connections: Why They Exist.}
+Deep networks suffer from the vanishing gradient problem: gradients shrink as they
+backpropagate through many layers, making the earliest layers learn almost nothing.
+Residual (shortcut) connections solve this by adding the input of a sublayer directly
+to its output:
+
+\[
+  \text{output} = x + \text{Sublayer}(x)
+\]
+
+The gradient now has a direct path back through the addition operation, bypassing the
+sublayer. Even if the sublayer's gradients vanish, the shortcut keeps the signal alive.
+This is what made training very deep networks (12, 24, 96 layers) practical.
+
+Each transformer block has two shortcut connections: one around the attention sublayer
+and one around the feed-forward sublayer.
+\end{keyconcept}
+
+\vspace{1em}
+
+\begin{keyconcept}
+\textbf{The Transformer Block: One Complete Unit.}
+A transformer block is the repeating unit that gets stacked $N$ times. Inside each block:
+
+\begin{enumerate}[leftmargin=1.5em, itemsep=3pt, topsep=4pt]
+  \item \textbf{Layer Norm} applied to the input.
+  \item \textbf{Multi-Head Causal Attention} applied to the normalized input.
+  \item \textbf{Dropout} applied to the attention output.
+  \item \textbf{Shortcut connection:} add the original input back.
+  \item \textbf{Layer Norm} applied to the result.
+  \item \textbf{Feed-Forward Network} applied to the normalized result.
+  \item \textbf{Dropout} applied to the FFN output.
+  \item \textbf{Shortcut connection:} add back the result from step 4.
+\end{enumerate}
+
+The output has the same shape as the input: \texttt{[batch, tokens, emb\_dim]}.
+Stacking 12 of these blocks gives the model 12 chances to refine every token's
+representation before producing the final output.
+\end{keyconcept}
+
+\vspace{1em}
+
+\begin{keyconcept}
+\textbf{GPT-2 vs. GPT-3: Scale Is the Difference.}
+Architecturally, GPT-2 and GPT-3 are the same model. The difference is scale.
+GPT-2 (largest variant) has 1.5 billion parameters. GPT-3 has 175 billion.
+GPT-3 was trained on more data with more compute.
+
+GPT-3's weights are not public. GPT-2's are. This is why the book builds GPT-2:
+it is small enough to run on a laptop, the weights can be loaded for free, and
+the architecture is identical to the much larger models. Understanding GPT-2 deeply
+means understanding the foundation of every GPT-family model that came after it.
+
+Training GPT-3 from scratch on a single consumer GPU would take an estimated 665 years.
+Training the small GPT-2 on the dataset used in the book takes minutes on a laptop CPU.
+That difference in scale is what makes this study tractable.
+\end{keyconcept}
+
+\vspace{1em}
+
+\begin{keyconcept}
+\textbf{Parameter Count: Where the 124M Numbers Come From.}
+For the 124M GPT-2 model with \texttt{emb\_dim=768}, \texttt{n\_layers=12}:
+
+\begin{center}
+\small
+\begin{tabular}{@{}lr@{}}
+  \toprule
+  \textbf{Component} & \textbf{Approximate Parameters} \\
+  \midrule
+  Token embedding matrix ($50257 \times 768$) & 38.6M \\
+  Positional embedding matrix ($1024 \times 768$) & 0.8M \\
+  Each transformer block (attention + FFN + norms) & 7.1M \\
+  12 transformer blocks total & 85.2M \\
+  Output projection layer & 0 (tied to token embeddings) \\
+  \midrule
+  \textbf{Total} & \textbf{$\approx$ 124M} \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+\vspace{0.4em}
+The majority of parameters live in the transformer blocks. Each block's attention
+module has four weight matrices ($W_q$, $W_k$, $W_v$, $W_o$), each $768 \times 768$.
+The FFN has two weight matrices ($768 \times 3072$ and $3072 \times 768$). That is
+where the bulk of the learned knowledge is stored.
+\end{keyconcept}
+
+\vspace{1em}
+
+\begin{challenge}
+\begin{itemize}[leftmargin=1.2em, itemsep=3pt, topsep=2pt]
+  \item \textbf{Weight tying:} The output projection layer in GPT-2 shares weights
+        with the token embedding matrix. This is called weight tying. It reduces
+        parameters and reportedly improves performance. The intuition is that the
+        same matrix that maps token IDs to vectors can map vectors back to token
+        scores. This is still conceptually fuzzy and needs revisiting when the code
+        is written.
+  \item \textbf{Pre-norm vs.\ post-norm:} The book uses pre-norm (layer norm before
+        the sublayer). The original 2017 transformer used post-norm. Understanding
+        why pre-norm became standard in modern LLMs is something to read more about.
+  \item \textbf{No code yet:} This was a reading and understanding week. The architecture
+        is clear conceptually. The plan is to write the full GPT class once the Overleaf
+        documentation is submitted and after the professor meeting next week. Coming
+        back to this with fresh energy makes more sense than rushing the implementation.
+\end{itemize}
+\end{challenge}
+
+\vspace{0.8em}
+
+\begin{reflection}
+Week 5 felt like a turning point in a quiet way. There was no code, no debugging,
+no shape errors. Just reading and thinking. And for the first time since week 1,
+that felt completely fine rather than like falling behind.
+
+The reason is that the architecture now makes sense as a whole. In weeks 2 and 3,
+each component felt isolated: here is tokenization, here is attention, here are
+embeddings. Week 5 is where those pieces connected into a single coherent picture.
+The token embedding feeds into the transformer blocks. The transformer blocks use
+exactly the attention module from Chapter 3. The output projection maps back to
+vocabulary space. It is one pipeline, end to end.
+
+The parameter count exercise was unexpectedly useful. Working through where 124
+million numbers actually live in the model, which layers account for which portion,
+made the architecture feel concrete rather than abstract. A 768x768 weight matrix
+is not a vague concept. It is 589,824 numbers, each learned from data.
+
+The professor meeting next week is good timing. Having gone through four complete
+chapters, built the data pipeline, implemented attention from scratch, and now
+understood the full model architecture, there is something real to show and discuss.
+The code implementation of Chapter 4 will follow after that meeting.
+\end{reflection}
+
+\vspace{1em}

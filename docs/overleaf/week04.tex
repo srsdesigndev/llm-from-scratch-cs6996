@@ -1,0 +1,335 @@
+%===============================================================
+% WEEK 04
+% Chapter 3 Continued: Attention Mechanisms (Revision Week)
+% Tuesday Feb 10 & Thursday Feb 12, 2026
+%===============================================================
+
+\subsection*{Week 4 \textemdash\ Attention Mechanisms: Deep Revision}
+\addcontentsline{toc}{subsection}{Week 4 --- Attention Mechanisms Revision}
+
+{\small\textit{Tuesday, February 10 \textbullet\ Thursday, February 12, 2026 \textbullet\ 1.5 hrs each session}}
+
+\vspace{0.8em}
+
+\begin{weekgoals}
+\begin{itemize}[leftmargin=1.2em, itemsep=2pt, topsep=2pt]
+  \item Revisit Chapter 3 fully with a clearer head and stronger intent.
+  \item Read the original \textit{Attention Is All You Need} paper for context.
+  \item Watch YouTube explanations to build visual intuition before returning to code.
+  \item Rebuild attention from dot products to multi-head without referencing notes.
+  \item Feel positioned solidly before moving into Chapter 4.
+\end{itemize}
+\end{weekgoals}
+
+\vspace{0.8em}
+
+%----------------------------------------------------------------
+\subsubsection*{The Decision to Revisit}
+%----------------------------------------------------------------
+
+Week 3 ended with understanding that was real but not solid. The code worked. The
+outputs made sense. But if someone asked to explain causal masking or why the value
+matrix exists without looking at notes, it would have been difficult. That is not
+good enough. Chapter 4 builds directly on this. Chapter 5 builds on Chapter 4.
+Getting lost here means getting more lost later.
+
+So week 4 became a revision week. Same chapter, different approach. Less following
+the book line by line, more going out and finding the intuition from other sources
+first, then coming back to the code with that foundation.
+
+\vspace{1em}
+
+%----------------------------------------------------------------
+\subsubsection*{Tuesday, February 10 --- Session 1: External Resources and the Paper}
+%----------------------------------------------------------------
+
+The first session was entirely off the book. Read \textit{Attention Is All You Need}
+\cite{vaswani2017}, watched several YouTube explanations, and read a few blog articles.
+This was the most useful single session of the study so far in terms of building
+genuine understanding.
+
+\vspace{1em}
+
+\begin{keyconcept}
+\textbf{What the original paper taught that the book did not emphasize.}
+\textit{Attention Is All You Need} (Vaswani et al., 2017) introduced the transformer
+and replaced the dominant RNN-based architectures entirely. The paper's title is a
+statement: you do not need recurrence or convolution. Attention alone is sufficient.
+
+The key formula in the paper:
+
+\[
+  \text{Attention}(Q, K, V) = \text{softmax}\!\left(\frac{QK^{\top}}{\sqrt{d_k}}\right)V
+\]
+
+Reading this in the paper after implementing it piece by piece in code made the formula
+feel different. Each symbol now had a concrete meaning. $Q$ is the matrix of queries
+for every token. $K$ is the matrix of keys. $V$ is the values. The dot product $QK^T$
+computes all pairwise similarities in one shot. Dividing by $\sqrt{d_k}$ stabilizes
+the gradients. Softmax turns scores into weights. Multiplying by $V$ blends the values.
+Seven symbols. One formula. The entire attention mechanism.
+\end{keyconcept}
+
+\vspace{1em}
+
+\begin{keyconcept}
+\textbf{The Query / Key / Value intuition that finally clicked.}
+The database analogy helped more than anything else this week. Think of attention as
+a soft database lookup:
+
+\begin{itemize}[leftmargin=1.5em, itemsep=3pt, topsep=4pt]
+  \item The \textbf{Query} is what you are searching for. It represents the current
+        token asking: ``what information do I need from the other tokens?''
+  \item The \textbf{Key} is what each token is advertising. It says: ``here is what
+        I contain, in case anyone finds it relevant.''
+  \item The \textbf{Value} is what actually gets retrieved. Once the query finds a
+        relevant key, the corresponding value is what gets passed forward.
+\end{itemize}
+
+In a hard database lookup, you either find an exact match or you do not. In attention,
+every key matches every query to some degree --- the dot product score determines how
+much. The result is a \textit{soft} retrieval: a blend of all values, weighted by
+relevance. This is why attention is so powerful. It never says ``not relevant.'' It
+just says ``less relevant.''
+\end{keyconcept}
+
+\vspace{1em}
+
+\begin{keyconcept}
+\textbf{What multi-head attention is actually doing.}
+One head looks at the input through one learned perspective. The weight matrices
+$W_q$, $W_k$, $W_v$ define that perspective. Different random initializations lead
+to different perspectives being learned.
+
+Multiple heads run in parallel, each looking at the same input but through different
+lenses. One head might learn to track which noun a pronoun refers to. Another might
+learn syntactic dependencies. Another might track topic continuity across sentences.
+None of this is programmed in. It emerges from training. The model discovers what
+each head is useful for by gradient descent.
+
+Concatenating the outputs of all heads and projecting them back down with $W_o$
+gives the final context vector: richer than anything a single head could produce.
+\end{keyconcept}
+
+\vspace{1em}
+
+\begin{keyconcept}
+\textbf{Causal masking: the clean mental model.}
+Causal attention exists because GPT generates tokens one at a time, left to right.
+At generation time, future tokens do not exist yet. So during training, the model
+must be prevented from using future tokens --- otherwise it would learn a shortcut
+(just copy the answer from the future), which would not generalize to real generation.
+
+The mask enforces this constraint by zeroing out all attention weights above the
+diagonal. Token 1 attends only to token 1. Token 3 attends to tokens 1, 2, 3.
+Token $n$ attends to all $n$ tokens. The lower-triangular structure of the attention
+weight matrix is what makes the model genuinely autoregressive.
+
+Using $-\infty$ before softmax is the elegant implementation: $e^{-\infty} = 0$,
+so masked positions contribute nothing to the weighted sum. No separate re-normalization
+needed. Softmax handles it automatically.
+\end{keyconcept}
+
+\vspace{1em}
+
+%----------------------------------------------------------------
+\subsubsection*{Thursday, February 12 --- Session 2: Rebuilding the Code from Memory}
+%----------------------------------------------------------------
+
+Second session: close the notes, open a blank notebook, rebuild the attention
+mechanism from scratch. Start from dot products. End at \texttt{MultiHeadAttention}.
+If anything cannot be rebuilt, that is the gap.
+
+\vspace{1em}
+
+\begin{lstlisting}[language=Python, caption={Step 1 rebuilt: attention scores via dot product}]
+import torch
+
+# Six tokens, 3-dimensional embeddings
+inputs = torch.tensor(
+  [[0.43, 0.15, 0.89],
+   [0.55, 0.87, 0.66],
+   [0.57, 0.85, 0.64],
+   [0.22, 0.58, 0.33],
+   [0.77, 0.25, 0.10],
+   [0.05, 0.80, 0.55]]
+)
+
+# All pairwise attention scores: inputs @ inputs.T
+attn_scores = inputs @ inputs.T
+print(attn_scores.shape)
+\end{lstlisting}
+
+\textbf{Output:}
+\begin{lstlisting}[language={}, numbers=none, frame=none, backgroundcolor=\color{white}]
+torch.Size([6, 6])
+\end{lstlisting}
+
+A 6x6 matrix. Row $i$, column $j$ is the dot product between token $i$ and token $j$.
+High value means high similarity. This is the raw attention score matrix.
+
+\vspace{1em}
+
+\begin{lstlisting}[language=Python, caption={Step 2 rebuilt: normalize with softmax}]
+attn_weights = torch.softmax(attn_scores, dim=-1)
+print(attn_weights)
+print("Row sums:", attn_weights.sum(dim=-1))
+\end{lstlisting}
+
+\textbf{Output:}
+\begin{lstlisting}[language={}, numbers=none, frame=none, backgroundcolor=\color{white}]
+tensor([[0.2098, 0.2006, 0.1981, 0.1242, 0.1220, 0.1452],
+        [0.1385, 0.2379, 0.2333, 0.1240, 0.1082, 0.1581],
+        ...])
+Row sums: tensor([1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000])
+\end{lstlisting}
+
+Every row sums to 1. Each row is now a probability distribution over the six tokens:
+how much attention this token pays to each other token.
+
+\vspace{1em}
+
+\begin{lstlisting}[language=Python, caption={Step 3 rebuilt: context vectors as weighted sum}]
+context_vecs = attn_weights @ inputs
+print(context_vecs)
+print("Shape:", context_vecs.shape)
+\end{lstlisting}
+
+\textbf{Output:}
+\begin{lstlisting}[language={}, numbers=none, frame=none, backgroundcolor=\color{white}]
+tensor([[0.4421, 0.5931, 0.5790],
+        [0.4419, 0.6515, 0.5683],
+        [0.4431, 0.6496, 0.5671],
+        [0.4304, 0.6298, 0.5510],
+        [0.4671, 0.5910, 0.5266],
+        [0.4177, 0.6503, 0.5645]])
+Shape: torch.Size([6, 3])
+\end{lstlisting}
+
+Six context vectors. Each is a blend of all six input vectors, weighted by the attention
+scores. The shape stayed the same: 6 tokens, 3 dimensions. The numbers changed because
+each token now carries information from its neighbors.
+
+\vspace{1em}
+
+\begin{lstlisting}[language=Python, caption={Causal mask rebuilt from scratch}]
+import torch.nn as nn
+
+context_length = 6
+mask = torch.triu(torch.ones(context_length, context_length), diagonal=1)
+
+# Apply to attention scores: fill upper triangle with -inf
+masked_scores = attn_scores.masked_fill(mask.bool(), -torch.inf)
+causal_weights = torch.softmax(masked_scores, dim=-1)
+print(causal_weights)
+\end{lstlisting}
+
+\textbf{Output:}
+\begin{lstlisting}[language={}, numbers=none, frame=none, backgroundcolor=\color{white}]
+tensor([[1.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000],
+        [0.5384, 0.4616, 0.0000, 0.0000, 0.0000, 0.0000],
+        [0.3438, 0.3312, 0.3250, 0.0000, 0.0000, 0.0000],
+        [0.2714, 0.2528, 0.2542, 0.2216, 0.0000, 0.0000],
+        [0.2258, 0.2059, 0.2076, 0.1850, 0.1757, 0.0000],
+        [0.1935, 0.1663, 0.1666, 0.1542, 0.1666, 0.1529]])
+\end{lstlisting}
+
+The lower-triangular structure is clean. Token 1 sees only itself. Token 6 sees
+everything. This is what makes the model autoregressive. Rebuilt from memory without
+errors. That felt like a real milestone.
+
+\vspace{1em}
+
+\begin{lstlisting}[language=Python, caption={Full MultiHeadAttention class rebuilt}]
+class MultiHeadAttention(nn.Module):
+    def __init__(self, d_in, d_out, context_length, dropout, num_heads, qkv_bias=False):
+        super().__init__()
+        assert d_out % num_heads == 0
+        self.num_heads = num_heads
+        self.head_dim  = d_out // num_heads
+        self.d_out     = d_out
+        self.W_query   = nn.Linear(d_in, d_out, bias=qkv_bias)
+        self.W_key     = nn.Linear(d_in, d_out, bias=qkv_bias)
+        self.W_value   = nn.Linear(d_in, d_out, bias=qkv_bias)
+        self.out_proj  = nn.Linear(d_out, d_out)
+        self.dropout   = nn.Dropout(dropout)
+        self.register_buffer("mask",
+            torch.triu(torch.ones(context_length, context_length), diagonal=1))
+
+    def forward(self, x):
+        b, num_tokens, d_in = x.shape
+        # Project and split into heads
+        def split_heads(tensor):
+            return tensor.view(b, num_tokens, self.num_heads, self.head_dim).transpose(1, 2)
+
+        Q = split_heads(self.W_query(x))
+        K = split_heads(self.W_key(x))
+        V = split_heads(self.W_value(x))
+
+        # Scaled dot-product attention with causal mask
+        scores = Q @ K.transpose(2, 3) / self.head_dim**0.5
+        scores.masked_fill_(self.mask.bool()[:num_tokens, :num_tokens], -torch.inf)
+        weights = self.dropout(torch.softmax(scores, dim=-1))
+
+        # Combine heads and project
+        out = (weights @ V).transpose(1, 2).contiguous().view(b, num_tokens, self.d_out)
+        return self.out_proj(out)
+
+torch.manual_seed(123)
+batch = torch.stack((inputs, inputs), dim=0)
+mha = MultiHeadAttention(d_in=3, d_out=2, context_length=6, dropout=0.0, num_heads=2)
+print(mha(batch).shape)
+\end{lstlisting}
+
+\textbf{Output:}
+\begin{lstlisting}[language={}, numbers=none, frame=none, backgroundcolor=\color{white}]
+torch.Size([2, 6, 2])
+\end{lstlisting}
+
+Batch of 2, six tokens, 2-dimensional output per token. Rebuilt cleanly. The
+\texttt{split\_heads} helper made the reshape logic easier to read and reason about.
+
+\vspace{1em}
+
+\begin{challenge}
+\begin{itemize}[leftmargin=1.2em, itemsep=3pt, topsep=2pt]
+  \item \textbf{The output projection layer:} \texttt{self.out\_proj} is a linear layer
+        applied after combining the heads. The book mentions it is not strictly necessary
+        but is standard in all real LLMs. Understanding why: it gives the model one more
+        learned transformation to mix information across heads before passing the output
+        forward. Makes sense in retrospect.
+  \item \textbf{.contiguous():} Called before \texttt{.view()} when the tensor is
+        not stored contiguously in memory after \texttt{.transpose()}. Without it,
+        \texttt{.view()} throws a runtime error. This is a PyTorch memory layout detail.
+        Not conceptually deep but important to know.
+  \item \textbf{dropout on attention weights:} Randomly zeroing some attention weights
+        during training forces the model not to over-rely on any particular token
+        relationship. Only applied during training, disabled at inference.
+\end{itemize}
+\end{challenge}
+
+\vspace{0.8em}
+
+\begin{reflection}
+Taking a full week to revise was the right call. No question.
+
+Week 3 ended with surface understanding. Week 4 ends with something that feels more
+like ownership. The difference is being able to write the code without looking, being
+able to explain each step in plain words, and being able to trace a specific tensor
+through all its shape transformations from input to output.
+
+Reading the original paper was what pushed understanding from ``I follow the steps''
+to ``I understand why the steps are what they are.'' The formula in the paper is not
+abstract anymore. Every symbol maps to code that has been written.
+
+The YouTube videos helped build visual intuition that the book could not give in text
+alone. Seeing the attention weight matrix drawn as a heatmap, watching the heads
+specialize during training in animated form --- that kind of visual explanation fills
+in gaps that pure code cannot.
+
+Going into Chapter 4 feeling genuinely ready. The attention mechanism is understood.
+The data pipeline from Chapter 2 is understood. The next step is putting them together
+into a full GPT architecture and watching it generate text. That is where it gets real.
+\end{reflection}
+
+\vspace{1em}

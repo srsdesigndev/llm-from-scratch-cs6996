@@ -1,0 +1,396 @@
+%===============================================================
+% IS-6996 Independent Study — Spring 2026
+% Sundar Raj Sharma | Youngstown State University
+%===============================================================
+
+\documentclass[12pt, letterpaper]{article}
+
+% Packages
+\usepackage[margin=1in]{geometry}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{amsmath, amssymb}
+\usepackage{listings}
+\usepackage{parskip}
+\usepackage{tcolorbox}
+\usepackage{microtype}
+\usepackage{titlesec}
+\usepackage{newtxtext, newtxmath}   % Times New Roman style — standard for research papers
+
+% Hyperref
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    urlcolor=black,
+    citecolor=black,
+    pdftitle={IS-6996: Building a Large Language Model from Scratch},
+    pdfauthor={Sundar Raj Sharma},
+}
+
+% Header / Footer — minimal
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{\small IS-6996 Independent Study}
+\rhead{\small Spring 2026}
+\rfoot{\small\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0pt}
+
+% Section formatting — clean, no color
+\titleformat{\section}{\large\bfseries}{\thesection.}{0.5em}{}
+\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{0.5em}{}
+\titleformat{\subsubsection}{\normalsize\itshape}{\thesubsubsection}{0.4em}{}
+
+% Colors
+\definecolor{codegray}{RGB}{248, 248, 248}
+\definecolor{codeblue}{RGB}{30, 90, 168}
+\definecolor{codeorange}{RGB}{190, 90, 20}
+\definecolor{goalsback}{RGB}{232, 244, 255}    % soft blue
+\definecolor{goalsframe}{RGB}{100, 160, 220}
+\definecolor{conceptback}{RGB}{232, 248, 237}  % soft green
+\definecolor{conceptframe}{RGB}{80, 170, 110}
+\definecolor{challengeback}{RGB}{255, 243, 224} % soft amber
+\definecolor{challengeframe}{RGB}{210, 140, 50}
+\definecolor{reflectionback}{RGB}{245, 235, 255} % soft purple
+\definecolor{reflectionframe}{RGB}{150, 100, 200}
+
+% Code style — syntax highlighted
+\lstset{
+  language=Python,
+  backgroundcolor=\color{codegray},
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{codeblue}\bfseries,
+  commentstyle=\itshape\color{gray},
+  stringstyle=\color{codeorange},
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  numbersep=8pt,
+  breaklines=true,
+  frame=single,
+  rulecolor=\color{gray!40},
+  showstringspaces=false,
+  captionpos=b,
+}
+
+% Boxes
+\tcbuselibrary{skins, breakable}
+
+\newtcolorbox{weekgoals}{
+  colback=goalsback, colframe=goalsframe,
+  fonttitle=\bfseries\small, title=Weekly Goals,
+  top=4pt, bottom=4pt
+}
+
+\newtcolorbox{keyconcept}{
+  colback=conceptback, colframe=conceptframe,
+  fonttitle=\bfseries\small, title=Key Concepts,
+  top=4pt, bottom=4pt
+}
+
+\newtcolorbox{challenge}{
+  colback=challengeback, colframe=challengeframe,
+  fonttitle=\bfseries\small, title=Challenges \& Open Questions,
+  top=4pt, bottom=4pt
+}
+
+\newtcolorbox{reflection}{
+  colback=reflectionback, colframe=reflectionframe,
+  fonttitle=\bfseries\small, title=Reflection,
+  top=4pt, bottom=4pt
+}
+
+% Weekly report command — each weekNN.tex sits at root level alongside main.tex
+\newcommand{\weeklyreport}[1]{\newpage\input{#1}}
+
+%===============================================================
+\begin{document}
+%===============================================================
+
+% TITLE PAGE
+\begin{titlepage}
+  \centering
+  \vspace*{3cm}
+
+  {\LARGE\bfseries Building a Large Language Model from Scratch}
+
+  \vspace{0.5em}
+  {\large Independent Study}
+
+  \vspace{2.5cm}
+
+  {\normalsize
+    \textbf{Sundar Raj Sharma}\\[0.3em]
+    Department of Computer Science and Information Systems\\
+    Youngstown State University\\[0.2em]
+    \texttt{ssharma33@student.ysu.edu}
+  }
+
+  \vspace{1.2em}
+
+  {\normalsize
+    \textbf{Supervisor:} Feng (George) Yu, Ph.D.\\[0.2em]
+    Department of Computer Science and Information Systems\\
+    Youngstown State University
+  }
+
+  \vspace{1.2em}
+
+  {\normalsize IS-6996 $\cdot$ Spring 2026}
+
+  \vspace{2.5cm}
+
+  % Abstract
+  \begin{minipage}{0.85\textwidth}
+    \small\textbf{Abstract.}\quad
+    This document is a weekly learning log for an independent study on building a
+    large language model (LLM) from scratch. The study follows Sebastian Raschka's
+    \textit{Build a Large Language Model (From Scratch)} \cite{raschka2024} as the
+    primary reference, supplemented by hands-on practice in Google Colab and
+    Jupyter Notebooks. The goal is not to use pre-built libraries but to implement
+    every component --- tokenization, attention mechanisms, the transformer block,
+    pretraining, and fine-tuning --- from first principles using Python and PyTorch.
+    This is a continuous learning effort. Each weekly entry documents what was
+    learned, key concepts understood, code written, and challenges encountered.
+    The cumulative result is intended to serve as both a personal knowledge record
+    and a readable summary: someone reading this document should come away with a
+    clear understanding of what an LLM is and how one can be built, step by step.
+  \end{minipage}
+
+  \vfill
+  {\small Spring 2026}
+\end{titlepage}
+
+% TABLE OF CONTENTS
+\tableofcontents
+\newpage
+
+%===============================================================
+% SECTION 1: REFERENCES & RESOURCES
+%===============================================================
+\section{References \& Resources}
+
+This study draws primarily on the following textbook and supplementary materials.
+All hands-on coding is done in Google Colab and Jupyter Notebooks, with no reliance
+on high-level abstractions such as Hugging Face Transformers. The objective is to
+understand each component by building it.
+
+\subsection{Primary Textbook}
+
+\textbf{Sebastian Raschka} --- \textit{Build a Large Language Model (From Scratch)},
+Manning Publications, 2024.\\
+\url{https://github.com/rasbt/LLMs-from-scratch}
+
+\vspace{0.5em}
+This book is the backbone of the study. It walks through implementing a GPT-style
+language model entirely from scratch in PyTorch --- from raw text and tokenization
+all the way through pretraining and instruction fine-tuning. Each chapter maps
+directly to a weekly learning block.
+
+\vspace{0.8em}
+\textbf{Book Contents}
+
+\vspace{0.3em}
+\begin{itemize}[leftmargin=1.5em, itemsep=0pt, topsep=0pt]
+
+  \item \textbf{Chapter 1 \quad Understanding Large Language Models}
+  \begin{itemize}[leftmargin=1.5em, itemsep=0pt, topsep=2pt]
+    \small
+    \item[--] What is an LLM?
+    \item[--] Applications of LLMs
+    \item[--] Stages of building and using LLMs
+    \item[--] Introducing the transformer architecture
+    \item[--] Utilizing large datasets
+    \item[--] A closer look at the GPT architecture
+    \item[--] Building a large language model
+  \end{itemize}
+
+  \vspace{4pt}
+  \item \textbf{Chapter 2 \quad Working with Text Data}
+  \begin{itemize}[leftmargin=1.5em, itemsep=0pt, topsep=2pt]
+    \small
+    \item[--] Understanding word embeddings
+    \item[--] Tokenizing text
+    \item[--] Converting tokens into token IDs
+    \item[--] Adding special context tokens
+    \item[--] Byte pair encoding
+    \item[--] Data sampling with a sliding window
+    \item[--] Creating token embeddings
+    \item[--] Encoding word positions
+  \end{itemize}
+
+  \vspace{4pt}
+  \item \textbf{Chapter 3 \quad Coding Attention Mechanisms}
+  \begin{itemize}[leftmargin=1.5em, itemsep=0pt, topsep=2pt]
+    \small
+    \item[--] The problem with modeling long sequences
+    \item[--] Capturing data dependencies with attention mechanisms
+    \item[--] Self-attention without trainable weights
+    \item[--] Self-attention with trainable weights
+    \item[--] Causal attention and masking
+    \item[--] Multi-head attention
+  \end{itemize}
+
+  \vspace{4pt}
+  \item \textbf{Chapter 4 \quad Implementing a GPT Model from Scratch}
+  \begin{itemize}[leftmargin=1.5em, itemsep=0pt, topsep=2pt]
+    \small
+    \item[--] Coding an LLM architecture
+    \item[--] Layer normalization
+    \item[--] Feed-forward network with GELU activations
+    \item[--] Shortcut connections
+    \item[--] Transformer block
+    \item[--] Coding the GPT model
+    \item[--] Generating text
+  \end{itemize}
+
+  \vspace{4pt}
+  \item \textbf{Chapter 5 \quad Pretraining on Unlabeled Data}
+  \begin{itemize}[leftmargin=1.5em, itemsep=0pt, topsep=2pt]
+    \small
+    \item[--] Evaluating generative text models
+    \item[--] Training an LLM
+    \item[--] Decoding strategies: temperature scaling and top-k sampling
+    \item[--] Loading and saving model weights in PyTorch
+    \item[--] Loading pretrained weights from OpenAI
+  \end{itemize}
+
+  \vspace{4pt}
+  \item \textbf{Chapter 6 \quad Fine-Tuning for Classification}
+  \begin{itemize}[leftmargin=1.5em, itemsep=0pt, topsep=2pt]
+    \small
+    \item[--] Categories of fine-tuning
+    \item[--] Preparing the dataset and data loaders
+    \item[--] Initializing a model with pretrained weights
+    \item[--] Adding a classification head
+    \item[--] Fine-tuning on supervised data
+    \item[--] Using the LLM as a spam classifier
+  \end{itemize}
+
+  \vspace{4pt}
+  \item \textbf{Chapter 7 \quad Fine-Tuning to Follow Instructions}
+  \begin{itemize}[leftmargin=1.5em, itemsep=0pt, topsep=2pt]
+    \small
+    \item[--] Introduction to instruction fine-tuning
+    \item[--] Preparing a dataset for supervised instruction fine-tuning
+    \item[--] Organizing data into training batches
+    \item[--] Fine-tuning the LLM on instruction data
+    \item[--] Evaluating the fine-tuned LLM
+  \end{itemize}
+
+  \vspace{4pt}
+  \item \textbf{Appendices}
+  \begin{itemize}[leftmargin=1.5em, itemsep=0pt, topsep=2pt]
+    \small
+    \item[--] A: Introduction to PyTorch
+    \item[--] B: References and further reading
+    \item[--] C: Exercise solutions
+    \item[--] D: Adding bells and whistles to the training loop
+    \item[--] E: Parameter-efficient fine-tuning with LoRA
+  \end{itemize}
+
+\end{itemize}
+
+\subsection{Supplementary Papers}
+
+\textbf{Vaswani et al.} --- \textit{Attention Is All You Need}, NeurIPS 2017.\\
+\url{https://arxiv.org/abs/1706.03762}\\[0.5em]
+The foundational paper introducing the transformer architecture. Required reading
+alongside Chapter 3 of the textbook.
+
+\vspace{0.5em}
+
+\textbf{Radford et al.} --- \textit{Language Models are Unsupervised Multitask Learners},
+OpenAI 2019.\\
+\url{https://openai.com/blog/better-language-models}\\[0.5em]
+The GPT-2 paper. Provides context for the architecture implemented in this study.
+
+\subsection{Tools \& Environment}
+
+\begin{itemize}[leftmargin=1.5em]
+  \item \textbf{Language:} Python 3.10+
+  \item \textbf{Framework:} PyTorch 2.x
+  \item \textbf{Notebooks:} Google Colab, Jupyter Notebooks
+  \item \textbf{Version Control:} GitHub
+  \item \textbf{Documentation:} Overleaf (this document), updated weekly
+\end{itemize}
+
+\subsection{Study Structure}
+
+This is a 3-credit independent study meeting twice a week --- every Tuesday and Thursday.
+Each week consists of approximately 3 hours of guided theory aligned with the textbook,
+plus an additional 10--12 hours of personal study commitment: practicing code, running
+experiments in Google Colab and Jupyter Notebooks, and reinforcing concepts hands-on.
+This is not an expert-level starting point --- the approach is continuous learning,
+building understanding from the ground up before tackling anything complex.
+
+\vspace{0.8em}
+
+\begin{tabular}{@{}lll@{}}
+  \textbf{Chapter} & \textbf{Topic} & \textbf{Week} \\[4pt]
+  \midrule
+  1 & Understanding Large Language Models      & Week 1 \\
+  2 & Working with Text Data                   & Week 2 \\
+  3 & Coding Attention Mechanisms              & Weeks 3--4 \\
+  4 & Implementing a GPT Model from Scratch    & Weeks 5--6 \\
+  5 & Pretraining on Unlabeled Data            & Weeks 7--8 \\
+  6 & Fine-Tuning for Classification           & Weeks 9--10 \\
+  7 & Fine-Tuning to Follow Instructions       & Weeks 11--12 \\
+\end{tabular}
+
+\newpage
+
+%===============================================================
+% SECTION 2: WEEKLY PROGRESS
+%
+% HOW TO ADD A NEW WEEK:
+%   1. In Overleaf, click New File -> name it week02.tex
+%      (keep it at ROOT level, same folder as main.tex)
+%   2. Copy WEEKLY_TEMPLATE.tex contents in, fill it in
+%   3. Uncomment the matching \weeklyreport{week02} line below
+%   4. Recompile
+%===============================================================
+\section{Weekly Progress}
+
+\weeklyreport{week01}
+\weeklyreport{week02}
+\weeklyreport{week03}
+\weeklyreport{week04}
+% \weeklyreport{week05}
+% \weeklyreport{week06}
+% \weeklyreport{week07}
+% \weeklyreport{week08}
+% \weeklyreport{week09}
+% \weeklyreport{week10}
+% \weeklyreport{week11}
+% \weeklyreport{week12}
+
+%===============================================================
+% BIBLIOGRAPHY
+%===============================================================
+\newpage
+\begin{thebibliography}{9}
+
+\bibitem{raschka2024}
+  S.\ Raschka.
+  \textit{Build a Large Language Model (From Scratch)}.
+  Manning Publications, 2024.
+  \url{https://github.com/rasbt/LLMs-from-scratch}
+
+\bibitem{vaswani2017}
+  A.\ Vaswani, N.\ Shazeer, N.\ Parmar, et al.
+  \textit{Attention Is All You Need}.
+  NeurIPS, 2017.
+  \url{https://arxiv.org/abs/1706.03762}
+
+\bibitem{radford2019}
+  A.\ Radford, J.\ Wu, R.\ Child, et al.
+  \textit{Language Models are Unsupervised Multitask Learners}.
+  OpenAI, 2019.
+  \url{https://openai.com/blog/better-language-models}
+
+\end{thebibliography}
+
+\end{document}

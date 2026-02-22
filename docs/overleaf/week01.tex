@@ -1,0 +1,208 @@
+%===============================================================
+% WEEK 01
+% Chapter 1: Understanding Large Language Models
+% Tuesday Jan 20 & Thursday Jan 22, 2026
+%===============================================================
+
+\subsection*{Week 1 \textemdash\ Understanding Large Language Models}
+\addcontentsline{toc}{subsection}{Week 1 --- Understanding Large Language Models}
+
+{\small\textit{Tuesday, January 20 \textbullet\ Thursday, January 22, 2026 \textbullet\ 1.5 hrs each session}}
+
+\vspace{0.8em}
+
+\begin{weekgoals}
+\begin{itemize}[leftmargin=1.2em, itemsep=2pt, topsep=2pt]
+  \item Read Chapter 1 in full, including the preface and author background.
+  \item Understand what an LLM is, where it came from, and why it matters.
+  \item Explore the author's work beyond the book --- YouTube, LinkedIn, blog, research.
+  \item Build curiosity and context before writing a single line of code.
+  \item Get a clear picture of the three-stage pipeline the entire book follows.
+\end{itemize}
+\end{weekgoals}
+
+\vspace{0.8em}
+
+% ── TUESDAY JAN 20 ────────────────────────────────────────────
+\subsubsection*{Tuesday, January 20 --- Session 1: Starting from the Beginning}
+
+Week 1 had no code. That was intentional. Before writing anything, the goal was to
+understand \textit{who} wrote this book, \textit{why} it was written, and \textit{what}
+the journey ahead actually looks like. This is the seed phase getting the soil
+right before planting anything.
+
+Started by reading the preface and the author sections. Sebastian Raschka is a machine
+learning researcher and educator who has spent years making complex topics accessible.
+Reading his background made it clear this book is not just a technical manual it is
+written by someone who genuinely cares about the reader understanding deeply, not just
+copying code. That changed how I approached everything that followed.
+
+From there: his LinkedIn, his YouTube channel where he teaches machine learning concepts,
+his personal blog, and his research papers. This was not procrastination --- it was
+orientation. Understanding the author's perspective made Chapter 1 land differently when
+I finally read it.
+
+\begin{keyconcept}
+\textbf{What is a Large Language Model?}
+An LLM is a deep neural network trained on massive amounts of text to understand,
+generate, and respond to human language. The ``large'' in the name refers to two things:
+the number of parameters (often tens to hundreds of billions of adjustable weights), and
+the scale of the training data (sometimes the entire publicly available internet).
+
+The training task is deceptively simple: predict the next word. Given a sequence of text,
+the model learns to predict what comes next. Repeating this across billions of examples
+forces the model to learn grammar, facts, context, reasoning patterns, and the structure
+of language --- not because any of those things were explicitly taught, but because
+predicting the next word well requires understanding all of them.
+
+\textbf{Where LLMs sit in the bigger picture.}
+AI is the broad field. Machine learning is a subset of AI focused on algorithms that
+learn from data. Deep learning is a subset of machine learning focused on neural networks
+with many layers. LLMs are a specific application of deep learning --- they use
+transformer-based neural networks trained on text at scale. The hierarchy matters because
+it clarifies what LLMs actually are: not magic, but the current frontier of a well-defined
+progression of ideas.
+
+\textbf{Why LLMs changed everything.}
+Before LLMs, NLP models were narrow. A spam classifier could classify spam. A translation
+model could translate. Each model was built for one task. LLMs broke this pattern. The
+same pretrained model can translate, summarize, answer questions, write code, and classify
+text --- all without being explicitly trained on each task separately. This generality
+is what makes them so significant.
+\end{keyconcept}
+
+\vspace{0.8em}
+
+% ── THURSDAY JAN 22 ───────────────────────────────────────────
+\subsubsection*{Thursday, January 22 --- Session 2: The Architecture and the Pipeline}
+
+Second session went deeper into Chapter 1 --- the transformer architecture, the GPT
+design specifically, and the three-stage pipeline that organizes the entire book.
+Also spent time reading Raschka's blog posts and watching parts of his YouTube lectures,
+which gave a more intuitive feel for concepts the book explains more formally.
+
+\begin{keyconcept}
+\textbf{The Transformer Architecture.}
+Introduced in the 2017 paper \textit{Attention Is All You Need} \cite{vaswani2017},
+the transformer replaced recurrent networks (RNNs and LSTMs) as the dominant architecture
+for language tasks. The core innovation is \textit{self-attention}: instead of processing
+tokens one at a time in order, the transformer processes the entire sequence simultaneously
+and learns which tokens should influence which other tokens. This makes it much better
+at capturing long-range relationships in text.
+
+The original transformer had two parts: an \textbf{encoder} that reads and encodes the
+input, and a \textbf{decoder} that generates the output. GPT uses only the decoder half.
+
+\textbf{BERT vs.\ GPT --- two different directions.}
+Both are transformer-based, but they go different directions. BERT uses the encoder and
+is trained by masking random words and predicting them --- it sees the full context in
+both directions. GPT uses the decoder and predicts the next word left-to-right --- it
+can only see what came before. BERT is better for understanding tasks like classification.
+GPT is better for generation tasks like writing and conversation. This study follows
+the GPT path entirely.
+
+\textbf{GPT is autoregressive.}
+Each new word is generated based on everything that came before it. The model generates
+one token at a time, feeding each output back as input for the next step. This is what
+``autoregressive'' means. It is slower than parallel processing, but it is how coherent
+text gets built word by word.
+
+\textbf{Emergent behavior.}
+GPT models are trained only on next-word prediction. Yet they can translate languages,
+summarize documents, answer questions, and write code --- none of which they were
+explicitly trained to do. This is called \textit{emergent behavior}: capabilities that
+arise from scale and exposure to diverse data, not from being specifically programmed.
+Researchers did not expect this. It is one of the most surprising and important
+discoveries in the field.
+\end{keyconcept}
+
+\vspace{0.8em}
+
+\begin{keyconcept}
+\textbf{The Three-Stage Pipeline --- the Road Map for This Study.}
+Raschka frames the entire book around three stages. Understanding this now makes every
+chapter make sense in context:
+
+\begin{enumerate}[leftmargin=1.5em, itemsep=4pt, topsep=6pt]
+  \item \textbf{Stage 1 --- Architecture and Data:} Implement the data pipeline
+        (tokenization, embeddings) and the attention mechanism. This is Chapters 1--4.
+        No training yet --- just building the machine.
+
+  \item \textbf{Stage 2 --- Pretraining:} Train the model on raw, unlabeled text using
+        next-word prediction. The model develops general language understanding.
+        This is Chapter 5. Also covers loading pretrained weights from OpenAI's GPT-2
+        so expensive retraining can be skipped.
+
+  \item \textbf{Stage 3 --- Fine-Tuning:} Take the pretrained model and adapt it to a
+        specific task using labeled data. Two types: classification fine-tuning
+        (Chapter 6) and instruction fine-tuning (Chapter 7).
+\end{enumerate}
+
+This pipeline mirrors how real-world LLMs like ChatGPT are built. Pretraining costs
+millions of dollars and takes massive compute. Fine-tuning is much cheaper and is where
+most practical applications happen. Understanding both is the goal.
+
+\textbf{Why build from scratch?}
+The book makes a strong case: custom-built LLMs can outperform general-purpose ones on
+specific tasks. Companies like Bloomberg have built domain-specific LLMs (BloombergGPT
+for finance) that beat ChatGPT in their area. Privacy is another reason --- not sending
+sensitive data to a third-party API. And smaller, fine-tuned models can run locally on
+laptops or phones, reducing latency and cost.
+
+But for this study, the reason is simpler: you cannot understand what you did not build.
+\end{keyconcept}
+
+\vspace{0.8em}
+
+\begin{keyconcept}
+\textbf{Training Data at Scale.}
+GPT-3 was trained on approximately 300 billion tokens drawn from five datasets:
+CommonCrawl (60\%), WebText2 (22\%), Books1 and Books2 (8\% each), and Wikipedia (3\%).
+A token is roughly a word or punctuation character. The CommonCrawl portion alone is
+around 570 GB of text. The estimated cost of training GPT-3 was \$4.6 million in cloud
+computing. This is why pretraining from scratch is not practical for this study ---
+but understanding it is. The book provides code to pretrain on a small dataset for
+educational purposes, then load GPT-2's open-source weights to skip the expensive part.
+\end{keyconcept}
+
+\vspace{0.8em}
+
+\begin{challenge}
+\begin{itemize}[leftmargin=1.2em, itemsep=3pt, topsep=2pt]
+  \item \textbf{Self-attention} is mentioned throughout Chapter 1 but not yet explained
+        mechanically. The book defers this to Chapter 3. For now the intuition is:
+        each token learns to ``pay attention'' to other tokens that are relevant to it.
+        The details --- queries, keys, values, dot products --- are coming.
+  \item \textbf{Tokenization} is described as converting text into tokens but the exact
+        mechanics (how words get split, what byte pair encoding actually does) are covered
+        in Chapter 2. Noted as something to not skip past quickly.
+  \item \textbf{Scale vs.\ understanding:} GPT-3 has 96 transformer layers and 175 billion
+        parameters. These numbers are hard to build intuition around at this stage. The
+        study will build a much smaller version, which should make the architecture tangible.
+\end{itemize}
+\end{challenge}
+
+\vspace{0.8em}
+
+\begin{reflection}
+Week 1 felt like turning on a light in a room you have been in before but never really
+seen clearly. The concepts --- neural networks, training, language models --- were not
+entirely new words. But understanding \textit{why} they work the way they do, and
+\textit{how} each piece connects to the next, was different this time.
+
+Reading the preface before the technical content was the right call. It made the book
+feel like a conversation rather than a manual. Following Raschka's YouTube and blog
+added a layer that the text alone does not give --- you hear how he \textit{thinks}
+about problems, not just what the answers are. That matters for learning.
+
+The insight that stayed with me most: predicting the next word is a trivial task on the
+surface. But to do it well across billions of diverse sentences, the model has to
+internally build something that looks a lot like understanding. The simplicity of the
+training objective is not a limitation --- it is the whole trick. That is genuinely
+surprising, and it makes me want to understand the mechanism deeply, not just use it.
+
+No code this week. That was the right call. The foundation has to be conceptual before
+it can be technical.
+\end{reflection}
+
+\vspace{1em}
