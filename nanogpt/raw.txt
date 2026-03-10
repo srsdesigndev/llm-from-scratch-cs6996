@@ -1,0 +1,44 @@
+Sure! Here's a simple breakdown of **nanoGPT**:
+
+---
+
+**What is it?**
+nanoGPT is a small, clean codebase made by Andrej Karpathy (a well-known AI researcher) that lets you **train or fine-tune GPT-style AI language models** — the same kind of model that powers ChatGPT — from scratch, with minimal code.
+
+---
+
+**Why does it exist?**
+Building AI language models usually involves massive, complex codebases. nanoGPT strips all that away. The whole thing is basically just **two files**:
+- `train.py` (~300 lines) — the training loop
+- `model.py` (~300 lines) — the GPT model itself
+
+That's it. Simple and easy to understand or modify.
+
+---
+
+**What can you do with it?**
+
+1. **Train a mini GPT from scratch** — For example, you can feed it all of Shakespeare's writings and it'll learn to generate new Shakespeare-like text in just ~3 minutes on a GPU.
+
+2. **Fine-tune an existing model** — You can take OpenAI's pre-trained GPT-2 model and adapt it to your own dataset without training from zero.
+
+3. **Reproduce GPT-2** — If you have serious hardware (like 8 high-end GPUs), you can fully reproduce OpenAI's GPT-2 model.
+
+---
+
+**Who is it for?**
+- Students or hobbyists who want to *learn* how GPT works hands-on
+- Researchers who want a clean base to experiment with
+- Developers who want to train a custom language model without dealing with bloated frameworks
+
+---
+
+**One fun example:**
+After just 3 minutes of training on Shakespeare with a regular GPU, it can generate stuff like:
+> *"ANGELO: And cowards it be strawn to my bed, And thrust the gates of my threats..."*
+
+Not perfect, but surprisingly good for such a tiny, fast model!
+
+---
+
+**Note:** The author has marked nanoGPT as *deprecated* (old/archived) as of late 2025, and recommends checking out its newer cousin called **nanochat** instead. But nanoGPT is still a great learning resource.
