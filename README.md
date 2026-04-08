@@ -1,4 +1,8 @@
+![Training and Validation Loss Curves with Overfitting Gap - Epoch 0 to 20 - Shows train loss decreasing from 10.5 to 1.9, val loss decreasing from 10.5 to 1.9, overfitting gap narrowing from 0.50 to 0.18 - Indicates healthy learning with minimal overfitting](./assets/experiment/train_val_loss_overfitting_gap.png)
+
 # LLM From Scratch
+
+
 
 Building a Large Language Model from scratch following Sebastian Raschka's book *Build a Large Language Model (From Scratch)*, as part of an independent study at Youngstown State University.
 
