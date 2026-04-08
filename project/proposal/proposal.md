@@ -1,6 +1,6 @@
 ![Project Banner](../../assets/project/proposal/banner/project-banner.png)
 
-# Professor AI Assistant – Project Idea
+# Professor AI Assistant
 
 ## Abstract
 
