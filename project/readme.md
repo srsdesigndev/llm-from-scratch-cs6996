@@ -12,7 +12,7 @@ Proposed. Waiting for approval.
 
 | File | Description |
 |------|-------------|
-| [project/proposal/proposal.md](project/proposal/proposal.md) | Original project idea, abstract, privacy focus, outcome |
+| [/proposal/proposal.md](/proposal/proposal.md) | Original project idea, abstract, privacy focus, outcome |
 
 ## Progress Log
 
@@ -22,4 +22,4 @@ Proposed. Waiting for approval.
 
 ## Links
 
-- [Project Initial Proposal Document](project/proposal/proposal.md)
+- [Project Initial Proposal Document](/proposal/proposal.md)
