@@ -1,5 +1,7 @@
 # GPT from Scratch — Experiment Documentation
 
+
+
 ## Overview
 
 This experiment builds and trains a **GPT-style language model from scratch** using PyTorch. The model is trained on the complete works of Shakespeare to learn to generate Shakespearean-style text. The notebook covers the full pipeline: data loading, tokenization, model architecture, training, evaluation, and text generation.
@@ -18,6 +20,8 @@ This experiment builds and trains a **GPT-style language model from scratch** us
   - `matplotlib` — training curve visualization
 
 ---
+
+[Code -> click here for the Experimental Code ](./gpt_shakespeare_experiment.ipynb)
 
 ## Step 1 — Data Loading
 
