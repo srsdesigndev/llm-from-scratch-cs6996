@@ -1,8 +1,13 @@
-![Training and Validation Loss Curves with Overfitting Gap - Epoch 0 to 20 - Shows train loss decreasing from 10.5 to 1.9, val loss decreasing from 10.5 to 1.9, overfitting gap narrowing from 0.50 to 0.18 - Indicates healthy learning with minimal overfitting](./assets/experiment/train_val_loss_overfitting_gap.png)
+![](./assets/experiment/train_val_loss_overfitting_gap.png)
+
+[Experiment with Shakespeare GPT - Training Loss Curves & Text Generations](./code/experiment/gpt_shakespeare_experiment.md)
+
+[Prompt-response generation]()
+
+![](./assets/experiment/shakespeare_model_output_samples_temp1.0_topk25_epoch20.png)
+
 
 # LLM From Scratch
-
-
 
 Building a Large Language Model from scratch following Sebastian Raschka's book *Build a Large Language Model (From Scratch)*, as part of an independent study at Youngstown State University.
 
@@ -114,4 +119,4 @@ See [dependencies.md](code/torch/dependencies.md) for the full package list.
 
 ---
 
-*Last updated: March 10, 2026*
+*Last updated: Apr 090, 2026*
